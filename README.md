@@ -7,7 +7,9 @@ and will also generate a simple index.html with links to all hosts.
 
 The FQDN for each host will be used to setup the URL to the agent. 
 Example: 
-http://<your_nginx_server>/netdata/<fqdn_of_the_host>
+http://<your_nginx_server>/netdata/<fqdn_of_the_host_to_monitor>/
+
+Note: the play is using  {{ ansible_default_ipv4.address }} for the nginx vhost server_name . 
 
 To install the monitoring agent you will require access to the internet. 
 For offline isntallation on completely air gapped systems you will need to use 
