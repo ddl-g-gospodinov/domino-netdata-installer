@@ -1,0 +1,122 @@
+---
+- hosts: 127.0.0.1
+  become: 1
+  tasks:
+          - name: Setup variables file
+            ansible.builtin.copy:
+             dest: ./ndhosts.ini
+             content: "ndhost:"
+            delegate_to: 127.0.0.1
+
+- hosts: all
+  become: 1
+  gather_facts: 1
+  tasks:
+          - name: Generate variables file from host inventory
+            ansible.builtin.lineinfile:
+             path: ./ndhosts.ini
+             line: "  - name: {{ ansible_fqdn }} \n    ip: {{ ansible_default_ipv4.address }}"
+            delegate_to: 127.0.0.1
+
+
+- hosts: 127.0.0.1
+  become: 1
+  vars_files: 
+   - ./ndhosts.ini
+  tasks: 
+          - name: Install required pacakages
+            ansible.builtin.package:
+             name: lsof
+             state: latest
+
+          - name: Checking if nginx is already running
+            command: lsof -i :80
+            register: nlistening
+            ignore_errors: yes
+
+          - name: Install nginx
+            ansible.builtin.package:   
+             name: nginx 
+             state: latest
+            when: nlistening.rc == 1
+
+          - name: Deploy Nginx proxy configuration
+            template: 
+             src: ./monitoring.conf.j2
+             dest: /etc/nginx/conf.d/monitoring.conf 
+
+          - name: Adding proxy backend to nginx configuration
+            ansible.builtin.blockinfile:
+             path: /etc/nginx/conf.d/monitoring.conf
+             insertafter: "### ANSIBLE MANAGED BACKENDS START"
+             backup: yes
+             marker: "# {mark} ANSIBLE MANAGED BACKENDBLOCK {{ item.name }}"
+             block: |
+                     upstream  backend-{{ item.name }} {
+                     server {{ item.ip }}:19999;
+                     keepalive 64;
+                     }
+            with_items: "{{ ndhost }}"
+
+          - name: Start and enable Nginx service
+            service:
+             name: nginx
+             enabled: yes
+             state: restarted
+
+          - name: Deploy index page
+            template:
+             src: ./index.html.j2
+             dest: /var/www/html/index.html
+
+          - name: Generate index page 
+            ansible.builtin.blockinfile:
+             path: /var/www/html/index.html
+             insertafter: "<!-- ANSIBLE MANAGED START -->"
+             marker: "<!-- {mark} ANSIBLE MANAGED HOSTS LIST {{ item.name }} -->"
+             block: |
+                         <tr>
+                             <td> <a href="http://{{ ansible_default_ipv4.address }}/netdata/{{ item.name }}/" target="_blank"> {{ item.name }}  </a>  </td>
+                         </tr>
+            with_items: "{{ ndhost }}"
+
+- hosts: all
+  become: 1
+  gather_facts: 1
+  tasks:
+          - name: Install required pacakages 
+            ansible.builtin.package:
+             name: lsof 
+             state: latest 
+
+          - name: Checking if NetData is already running  
+            command: lsof -i :19999
+            register: listening
+            ignore_errors: yes
+
+          - name: Copy installation tar and Unarchive files
+            ansible.builtin.unarchive:
+             src: ./netdata-offline.tar.gz
+             dest: /opt/
+             remote_src: no 
+            when: listening.rc == 1 
+
+          - name: Install NetData service
+            command: /opt/netdata-offline/install.sh --non-interactive  --auto-update --disable-telemetry
+            when: listening.rc == 1
+
+          - name: Cleaning after install 
+            file: 
+             path: /opt/netdata-offline/
+             state: absent 
+            when: listening.rc == 1 
+
+          - name: Start and enable NetData service
+            service: 
+             name: netdata
+             enabled: yes
+             state: restarted
+            when: listening.rc == 1
+            ignore_errors: yes
+
+
