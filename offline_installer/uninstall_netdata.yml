@@ -1,0 +1,8 @@
+---
+- hosts: all
+  become: 1
+  gather_facts: 1
+  tasks:
+          - name: Uninstalling NetData
+            command: /opt/netdata/usr/libexec/netdata/netdata-uninstaller.sh  --yes -f
+            ignore_errors: 1
