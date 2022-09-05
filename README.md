@@ -33,7 +33,7 @@ pull the required files for isntalling the monitoring agent and will then archiv
 # chmod +x prep_offline_bundle.sh ; ./prep_offline_bundle.sh
 ```
 
-Once this is complete the you will have to move the entire **offline_installer** directory 
+Once this is complete then you will have to move the entire **offline_installer** directory 
 to your ansible control node and execute the play. 
 
 ```
