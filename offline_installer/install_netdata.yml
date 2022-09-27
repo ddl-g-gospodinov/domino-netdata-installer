@@ -11,13 +11,15 @@
 - hosts: all
   become: 1
   gather_facts: 1
+  vars:
+   servers_inventory: "{{ groups['all'] }}"
   tasks:
           - name: Generate variables file from host inventory
-            ansible.builtin.lineinfile:
-             path: ./ndhosts.ini
-             line: "  - name: {{ ansible_fqdn }} \n    ip: {{ ansible_default_ipv4.address }}"
+            template:
+             src: ./ndhosts.j2
+             dest: ./ndhosts.ini
             delegate_to: 127.0.0.1
-
+            run_once: 1
 
 - hosts: 127.0.0.1
   become: 1
