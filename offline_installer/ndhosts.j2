@@ -1,0 +1,5 @@
+ndhost:
+{% for host in servers_inventory %}
+  - name: {{ hostvars[host].inventory_hostname }}
+    ip: {{ hostvars[host].ansible_default_ipv4.address }}
+{% endfor %}
